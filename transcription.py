@@ -1,21 +1,10 @@
 import asyncio
 import record_audio
-# This example uses aiofile for asynchronous file reads.
-# It's not a dependency of the project but can be installed
-# with `pip install aiofile`.
-import aiofile
+import sys
 
 from amazon_transcribe.client import TranscribeStreamingClient
 from amazon_transcribe.handlers import TranscriptResultStreamHandler
 from amazon_transcribe.model import TranscriptEvent
-from amazon_transcribe.utils import apply_realtime_delay
-
-"""
-Here's an example of a custom event handler you can extend to
-process the returned transcription results as needed. This
-handler will simply print the text out to your interpreter.
-"""
-
 
 SAMPLE_RATE = 16000
 BYTES_PER_SAMPLE = 2
@@ -26,23 +15,22 @@ AUDIO_PATH = "./output.wav"
 CHUNK_SIZE = 1024
 REGION = "us-east-1"
 
-
 class MyEventHandler(TranscriptResultStreamHandler):
     def __init__(self, output_stream):
         super().__init__(output_stream)
         self.end_idx = 0
+        self.current_transcription = ""
 
     async def handle_transcript_event(self, transcript_event: TranscriptEvent):
-        # This handler can be implemented to handle transcriptions as needed.
-        # Here's an example to get started.
+        # This may need to be changed to handle updates to the previous context?
         results = transcript_event.transcript.results
         for result in results:
             for alt in result.alternatives:
-                current_transcription = alt.transcript
-                newly_transcribed = current_transcription[self.end_idx:]
-                self.end_idx = len(current_transcription)
+                self.current_transcription = alt.transcript
+                newly_transcribed = self.current_transcription[self.end_idx:]
+                self.end_idx = len(self.current_transcription)
                 print(newly_transcribed, end="")
-
+                sys.stdout.flush()
 
 async def basic_transcribe():
     # Setup up our client with our chosen AWS region
@@ -56,21 +44,18 @@ async def basic_transcribe():
     )
 
     async def write_chunks():
-        # NOTE: For pre-recorded files longer than 5 minutes, the sent audio
-        # chunks should be rate limited to match the realtime bitrate of the
-        # audio stream to avoid signing issues.
-        async with aiofile.AIOFile(AUDIO_PATH, "rb") as afp:
-            reader = aiofile.Reader(afp, chunk_size=CHUNK_SIZE)
-            await apply_realtime_delay(
-                stream, reader, BYTES_PER_SAMPLE, SAMPLE_RATE, CHANNEL_NUMS
-            )
+        async for chunk in record_audio.recording():
+            await stream.input_stream.send_audio_event(audio_chunk=chunk)
         await stream.input_stream.end_stream()
 
     # Instantiate our handler and start processing events
     handler = MyEventHandler(stream.output_stream)
     await asyncio.gather(write_chunks(), handler.handle_events())
+    return handler.current_transcription
 
+async def get_transcription():
+    current_transcription = await basic_transcribe()
+    return current_transcription
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(basic_transcribe())
-loop.close()
+if __name__ == "__main__":
+    asyncio.run(get_transcription())

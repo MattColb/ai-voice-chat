@@ -44,13 +44,13 @@ async def recording():
     while recording:
         data = stream.read(chunk)
         frames.append(data)
-
-    thread.join()
-
+        yield data
+    
     stream.stop_stream()
     stream.close()
     p.terminate()
-    return frames, p
+
+    thread.join()
 
 async def main():
     frames, p = await recording()
