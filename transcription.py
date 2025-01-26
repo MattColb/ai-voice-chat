@@ -1,5 +1,5 @@
 import asyncio
-
+import record_audio
 # This example uses aiofile for asynchronous file reads.
 # It's not a dependency of the project but can be installed
 # with `pip install aiofile`.
@@ -23,7 +23,7 @@ CHANNEL_NUMS = 1
 
 # An example file can be found at tests/integration/assets/test.wav
 AUDIO_PATH = "./output.wav"
-CHUNK_SIZE = 1024 * 8
+CHUNK_SIZE = 1024
 REGION = "us-east-1"
 
 

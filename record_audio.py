@@ -1,6 +1,7 @@
 import pyaudio
 import wave
 import threading
+import asyncio
 
 def wait_for_input():
     input()
@@ -8,61 +9,58 @@ def wait_for_input():
     recording = False
 
 recording = True
-chunk = 1024  # Record in chunks of 1024 samples
-sample_format = pyaudio.paInt16  # 16 bits per sample
+chunk = 1024
+sample_format = pyaudio.paInt16  
 channels = 1
-fs = 16000  # Record at 44100 samples per second
-seconds = 3
+fs = 16000
 filename = "output.wav"
 
+async def recording():
+    p = pyaudio.PyAudio()  # Create an interface to PortAudio
 
+    print("----------------------record device list---------------------")
+    info = p.get_host_api_info_by_index(0)
+    numdevices = info.get('deviceCount')
+    for i in range(0, numdevices):
+            if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
+                print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
 
-p = pyaudio.PyAudio()  # Create an interface to PortAudio
+    print("-------------------------------------------------------------")
 
-print('Recording')
+    index = int(input())
+    print("recording via index "+str(index)+"Press enter when done")
 
-print("----------------------record device list---------------------")
-info = p.get_host_api_info_by_index(0)
-numdevices = info.get('deviceCount')
-for i in range(0, numdevices):
-        if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
-            print("Input Device id ", i, " - ", p.get_device_info_by_host_api_device_index(0, i).get('name'))
+    thread = threading.Thread(target=wait_for_input)
+    thread.start()
 
-print("-------------------------------------------------------------")
+    stream = p.open(format=sample_format,
+                    channels=channels,
+                    rate=fs,
+                    frames_per_buffer=chunk,
+                    input=True, input_device_index=index)
 
-index = int(input())
-print("recording via index "+str(index)+"Press enter when done")
+    frames = [] 
 
-thread = threading.Thread(target=wait_for_input)
-thread.start()
+    while recording:
+        data = stream.read(chunk)
+        frames.append(data)
 
-stream = p.open(format=sample_format,
-                channels=channels,
-                rate=fs,
-                frames_per_buffer=chunk,
-                input=True, input_device_index=index)
+    thread.join()
 
-frames = []  # Initialize array to store frames
+    stream.stop_stream()
+    stream.close()
+    p.terminate()
+    return frames, p
 
-# Store data in chunks for 3 seconds
-while recording:
-    data = stream.read(chunk)
-    frames.append(data)
+async def main():
+    frames, p = await recording()
+    # Save the recorded data as a WAV file
+    wf = wave.open(filename, 'wb')
+    wf.setnchannels(channels)
+    wf.setsampwidth(p.get_sample_size(sample_format))
+    wf.setframerate(fs)
+    wf.writeframes(b''.join(frames))
+    wf.close()
 
-thread.join()
-
-# Stop and close the stream 
-stream.stop_stream()
-stream.close()
-# Terminate the PortAudio interface
-p.terminate()
-
-print('Finished recording')
-
-# Save the recorded data as a WAV file
-wf = wave.open(filename, 'wb')
-wf.setnchannels(channels)
-wf.setsampwidth(p.get_sample_size(sample_format))
-wf.setframerate(fs)
-wf.writeframes(b''.join(frames))
-wf.close()
+if __name__ == "__main__":
+    asyncio.run(main())
