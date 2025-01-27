@@ -5,3 +5,4 @@ __pycache__/
 win_env/
 linux_env/
 *.wav
+*.mp3

@@ -1,1 +1,2 @@
-- Streaming from microphone into transcription?
+- Streaming back from polly through python
+- Handle the middle LLM component
