@@ -1,0 +1,1 @@
+A basic service that records your voice, creates a transcription, passes it to an LLM, then reads out the response. You need to have an AWS account set up in your command line for this to work.
