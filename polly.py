@@ -9,7 +9,7 @@ response = polly.synthesize_speech(
         VoiceId="Joanna")
 
 print(response)
-with open("test.mp3", "wb") as f:
+with open("test.wav", "wb") as f:
     f.write(response["AudioStream"].read())
 
 def test_function(audio_bytes):
